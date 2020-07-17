@@ -75,18 +75,14 @@ To test the reverse perplexity, you need to train a third-party language model i
 
 For example, you could use the [awd-lstm-lm](https://github.com/salesforce/awd-lstm-lm) as the third-party language model:
 
-- Run the following scripts to split the generated sentences into training and validation sets, and copy the real test set.
-
-
+Firstly, run the following scripts to split the generated sentences into training and validation sets, and copy the real test set.
 
     MODEL_DIR="logs/ptb/dgmvae/xxx-main_lm.py"
     python scripts/split_sampling_corpus.py --model_dir $MODEL_DIR
 
 The training, validation and test sets are saved in the `reverse_PPL` directory under `MODEL_DIR`.
 
-- Train language model (for example, the awd-lstm-lm) in the synthetic dataset:
-
-
+Secondly, train language model (for example, the awd-lstm-lm) in the synthetic dataset:
 
     output_data_dir=$MODEL_DIR"/reverse_PPL"
     python awd-lstm-lm/main.py --batch_size 20 --data $output_data_dir --dropouti 0.4 --dropouth 0.25 --seed 141 --epoch 20 --save PTB.pt > $ouput_result_path
