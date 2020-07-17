@@ -78,12 +78,14 @@ For example, you could use the [awd-lstm-lm](https://github.com/salesforce/awd-l
 - Run the following scripts to split the generated sentences into training and validation sets, and copy the real test set.
 
 
+
     MODEL_DIR="logs/ptb/dgmvae/xxx-main_lm.py"
     python scripts/split_sampling_corpus.py --model_dir $MODEL_DIR
 
 The training, validation and test sets are saved in the `reverse_PPL` directory under `MODEL_DIR`.
 
 - Train language model (for example, the awd-lstm-lm) in the synthetic dataset:
+
 
 
     output_data_dir=$MODEL_DIR"/reverse_PPL"
