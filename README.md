@@ -1,24 +1,12 @@
-# Interpretable Neural Dialog Generation via Discrete Sentence Representation Learning
-Codebase for [Unsupervised Discrete Sentence Representation Learning for Interpretable Neural Dialog Generation](https://arxiv.org/abs/1804.08069), published as a long paper in ACL 2018. You can find my presentation slides [here](https://www.cs.cmu.edu/~tianchez/data/ACL2018-talk.pdf).
+# Dispersed Exponential Family Mixture VAEs for Interpretable Text Generation
+Codebase for [Dispersed Exponential Family Mixture VAEs for Interpretable Text Generation](https://arxiv.org/abs/1906.06719).
 
-<p align="center">
-  <img width="700" src="dsr-simple.png">
-</p>
-
-If you use any source codes or datasets included in this toolkit in your
-work, please cite the following paper. The bibtex are listed below:
- 
-    @article{zhao2018unsupervised,
-      title={Unsupervised Discrete Sentence Representation Learning for Interpretable Neural Dialog Generation},
-      author={Zhao, Tiancheng and Lee, Kyusong and Eskenazi, Maxine},
-      journal={arXiv preprint arXiv:1804.08069},
-      year={2018}
-    }
+This codebase is built based on [NeuralDialog-LAED](https://github.com/snakeztc/NeuralDialog-LAED) from Tiancheng Zhao.
 
 ## Requirements
     python 2.7
     pytorch >= 0.3.0.post4
-    numpy
+    sklearn
     nltk
 
 ## Datasets
@@ -27,52 +15,88 @@ The *data* folder contains three datasets:
 - [Daily Dialog](https://arxiv.org/abs/1710.03957): human-human open domain chatting.
 - [Stanford Multi-domain Dialog](https://nlp.stanford.edu/blog/a-new-multi-turn-multi-domain-task-oriented-dialogue-dataset/): human-woz task-oriented dialogs.
 
+The *data/word2vec* includes [GloVe](https://nlp.stanford.edu/projects/glove/.) word embeddings filtered by the words in training sets.
 
-## Run Models
-The first two scripts are sentence models (DI-VAE/DI-VST) that learn discrete sentence representations from either auto-encoding or context-predicting.
 
-#### Discrete Info Variational Autoencoder (DI-VAE)
-The following command will train a DI-VAE on the PTB dataset. To run on different datasets, follows the pattern in PTB dataloader
-and corpus reader and implement your own data interface.
+## Training
 
-    python ptb-utt.py
+### Language Generation
 
-#### Discrete info Variational Skip-thought (DI-VST)
-The following command will train a DI-VST on the Daily Dialog corpus. 
+You can run the following command to train a dispersed GM-VAE model on PTB:
     
-    python dailydialog-utt-skip.py
+    LOG_DIR="logs/ptb/dgmvae"
+    python main_lm.py --model GMVAE --log_dir $LOG_DIR --beta 0.2
 
-The next two train a latent-action encoder decoder with either DI-VAE or DI-VST.
-#### DI-VAE + Encoder Decoder (AE-ED)
-The following command will first train a DI-VAE on the Stanford multi domain dialog dataset, and then train a 
-hierarchical encoder decoder (HRED) model with the latent code from the DI-VAE.
-   
-    python stanford-ae.py
+You can use `--use_mutual True` to add the mutual information term in objective.
 
-#### DI-VST + Encoder Decoder (ST-ED)
-The following command will first train a DI-VST on the Stanford multi domain dialog dataset, and then train a 
-hierarchical encoder decoder (HRED) model with the latent code from the DI-VST.
+### Interpretable Text Generation
 
-    python stanford-skip.py
+#### Unsupervised text generation by dispersed Gaussian Mixture VAE (DGM-VAE)
 
-## Change Configurations
-#### Change model parameters
-Generally all the parameters are defined at the top of each script. You can either passed a different value in 
-the command line or change the default value of each parameters. Some key parameters are explained below:
+You can run the following command to train a dispersed GM-VAE model on DD and evaluate the interpretability by homogeneity:
+    
+    LOG_DIR="logs/dd/gmvae"
+    python main_inter.py --data daily_dialog --data_dir data/daily_dialog --mult_k 3 --k 5 --latent_size 5 --model GMVAE --log_dir $LOG_DIR --beta 0.3 --use_mutual True --post_sample_num 1 --sel_metric obj --lr_decay False
 
-- latent_size: the number of discrete latent variable
-- k: the number of classes for each discrete latent variable
-- use_reg_kl: whether or not use KL regulization on the latetn space. If False, the model becomes normal autoencoder or skip thought.
-- use_mutual: whether or not use Batch Prior Regulization (BPR) proposed in our work or the standard ELBO setup.
+#### Supervised text generation by dispersed Categorical Mixture VAE (DCM-VAE)
 
-Extra essential parameters for LA-ED or ST-ED:
+You can run the following command to train a supervised dispersed CM-VAE model on DD and evaluate the interpretability by accuracy:
+    
+    LOG_DIR="logs/dd_sup/bmvae"
+    python main_supervised.py --data daily_dialog --data_dir data/daily_dialog --model BMVAE --log_dir $LOG_DIR --beta 0.6
 
-- use_attribute: whether or not use the attribute forcing loss in Eq 10.
-- freeze_step: the number of batch we train DI-VAE/VST before we freeze latent action and training encoder-decoders.
 
-#### Test a existing model
-All trained models and log files are saved to the *log* folder. To run a existing model, you can:
+### Dialog Generation
 
-- Set the forward_only argument to be True
-- Set the load_sess argument to te the path to the model folder in *log*
+You can run the following command to train a dispersed GM-VAE model on SMD for dialog generation:
+
+    LOG_DIR="logs/smd/dgmvae"
+    python main_stanford.py --data stanford --data_dir data/stanford --model AeED_GMM --log_dir $LOG_DIR --use_mutual True --beta 0.5 --freeze_step 7000
+
+
+More examples of running baseline models could be found in `scripts/test.sh`.
+
+## Evaluation
+
+### Test a existing model
+
+To run an existing model, you can:
+
+- Set the `--forward_only` argument to be `True`
+- Set the `--load_sess` argument to the path of the model folder in *LOG_DIR*
 - Run the script 
+
+Metrics such as BLEU and negative log-likelihood are calculated by running this script.
+
+
+### Test reverse perplexity
+
+To test the reverse perplexity, you need to train a third-party language model in the synthetic training set and test in the real test set. 
+
+For example, you could use the [awd-lstm-lm](https://github.com/salesforce/awd-lstm-lm) as the third-party language model:
+
+- Run the following scripts to split the generated sentences into training and validation sets, and copy the real test set.
+
+
+    MODEL_DIR="logs/ptb/dgmvae/xxx-main_lm.py"
+    python scripts/split_sampling_corpus.py --model_dir $MODEL_DIR
+
+The training, validation and test sets are saved in the `reverse_PPL` directory under `MODEL_DIR`.
+
+- Train language model (for example, the awd-lstm-lm) in the synthetic dataset:
+
+
+    output_data_dir=$MODEL_DIR"/reverse_PPL"
+    python awd-lstm-lm/main.py --batch_size 20 --data $output_data_dir --dropouti 0.4 --dropouth 0.25 --seed 141 --epoch 20 --save PTB.pt > $ouput_result_path
+
+You can use other language models, just replacing the training and validation sets by the synthetic data.
+
+### Test word-level KL divergence
+
+You can run the following script to evaluate the word-level KL divergence between the synthetic set and the real training set:
+
+
+    MODEL_DIR="logs/ptb/dgmvae/xxx-main_lm.py"
+    python scripts/test_wKL.py --model_dir $MODEL_DIR --data_dir data/ptb
+    
+
